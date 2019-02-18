@@ -45,7 +45,7 @@ public class Main {
     try (ExcelExporter exporter = new ExcelExporter(mapper, datas)) {
       exporter.generate();
       try (OutputStream outputStream = new FileOutputStream(file)) {
-        exporter.getAsByteArrayOutputStream().writeTo(outputStream);
+        exporter.getWorkbook().write(outputStream);
       }
     }
   }
