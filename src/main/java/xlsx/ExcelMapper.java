@@ -16,6 +16,10 @@ public class ExcelMapper {
     mapper.put(field, new CellType(ExcelCellType.DECIMAL, "0.0"));
   }
 
+  public void addMappingAsBigDecimal(String field) {
+    mapper.put(field, new CellType(ExcelCellType.BIG_DECIMAL, "0.0"));
+  }
+
   public void addMappingAsDate(String field) {
     mapper.put(field, new CellType(ExcelCellType.DATE, "dd/mm/yyyy"));
   }

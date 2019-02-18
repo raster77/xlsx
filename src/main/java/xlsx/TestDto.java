@@ -1,6 +1,7 @@
 package xlsx;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Date;
 
 public class TestDto implements Serializable {
@@ -12,6 +13,7 @@ public class TestDto implements Serializable {
   private Integer integer;
   private Date date;
   private Double lng;
+  private BigDecimal bigDec;
 
   public TestDto() {}
 
@@ -53,5 +55,15 @@ public class TestDto implements Serializable {
   /** @param lng the lng to set */
   public void setLng(Double lng) {
     this.lng = lng;
+  }
+
+  /** @return the bigDec */
+  public BigDecimal getBigDec() {
+    return bigDec;
+  }
+
+  /** @param bigDec the bigDec to set */
+  public void setBigDec(BigDecimal bigDec) {
+    this.bigDec = bigDec;
   }
 }

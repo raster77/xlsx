@@ -1,11 +1,10 @@
 package xlsx;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -23,7 +22,7 @@ import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-public class ExcelExporter {
+public class ExcelExporter implements AutoCloseable {
 
   HashMap<String, CellStyle> styles = new HashMap<>();
   LinkedHashMap<String, Method> methods = new LinkedHashMap<>();
@@ -58,13 +57,13 @@ public class ExcelExporter {
     this.sheetTitle = sheetTitle;
   }
 
-  private void createWorkbook() {
-    workbook = new XSSFWorkbook();
-    sheet = workbook.createSheet(sheetTitle);
-    createHelper = workbook.getCreationHelper();
+  /** @return the workbook */
+  public XSSFWorkbook getWorkbook() {
+    return workbook;
   }
 
-  public void generate() {
+  public void generate()
+      throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
     Class<?> clazz = datas.get(0).getClass();
     mapper
         .getMapper()
@@ -74,6 +73,7 @@ public class ExcelExporter {
             entry -> {
               String methodName = "get" + capitalize(entry.getKey());
               Method method = getMethod(clazz, methodName);
+
               if (method != null) {
                 methods.put(entry.getKey(), method);
 
@@ -88,57 +88,58 @@ public class ExcelExporter {
               }
             });
 
-    Integer rowNum = 0;
-
-    for (Integer d = 0; d < datas.size(); ++d) {
+    for (Integer rowNum = 0; rowNum < datas.size(); ++rowNum) {
       XSSFRow row = sheet.createRow(rowNum);
       Integer cellNum = 0;
       for (Map.Entry<String, Method> entry : methods.entrySet()) {
 
-        try {
-          Object obj = entry.getValue().invoke(datas.get(d));
-          if (obj != null) {
-            System.out.println(rowNum + " - " + cellNum.toString() + " = " + obj.toString());
-            Cell cell = row.createCell(cellNum);
-            CellStyle cellStyle = styles.get(mapper.getMapper().get(entry.getKey()).getFormat());
-            System.out.println("Style: " + cellStyle.getDataFormatString());
-            cell.setCellStyle(cellStyle);
+        Object obj = entry.getValue().invoke(datas.get(rowNum));
+        if (obj != null) {
+          System.out.println(rowNum + " - " + cellNum.toString() + " = " + obj.toString());
+          Cell cell = row.createCell(cellNum);
+          CellStyle cellStyle = styles.get(mapper.getMapper().get(entry.getKey()).getFormat());
+          System.out.println("Style: " + cellStyle.getDataFormatString());
+          cell.setCellStyle(cellStyle);
 
-            switch (mapper.getMapper().get(entry.getKey()).getExcelCellType()) {
-              case DATE:
-              case DATETIME:
-                cell.setCellValue((Date) obj);
-                break;
-              case DECIMAL:
-                cell.setCellValue((Double) obj);
-                break;
-              case NUMERIC:
-                cell.setCellValue((Integer) obj);
-                break;
-              default:
-                cell.setCellValue(obj.toString());
-                break;
-            }
+          switch (mapper.getMapper().get(entry.getKey()).getExcelCellType()) {
+            case DATE:
+            case DATETIME:
+              cell.setCellValue((Date) obj);
+              break;
+            case BIG_DECIMAL:
+              cell.setCellValue(((BigDecimal) obj).doubleValue());
+              break;
+            case DECIMAL:
+              cell.setCellValue((Double) obj);
+              break;
+            case NUMERIC:
+              cell.setCellValue((Integer) obj);
+              break;
+            default:
+              cell.setCellValue(obj.toString());
+              break;
           }
-          cellNum++;
-
-        } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
         }
+        cellNum++;
       }
-      rowNum++;
     }
     ;
+  }
 
-    try (FileOutputStream file = new FileOutputStream(new File("workbook.xlsx"))) {
-      workbook.write(file);
-      workbook.close();
-    } catch (FileNotFoundException e) { // TODO Auto-generated catch block
-      e.printStackTrace();
-    } catch (IOException e) { // TODO Auto-generated catch block
-      e.printStackTrace();
+  public ByteArrayOutputStream getAsByteArrayOutputStream() throws IOException {
+
+    if (workbook != null) {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      workbook.write(outputStream);
+      return outputStream;
     }
+    return null;
+  }
+
+  private void createWorkbook() {
+    workbook = new XSSFWorkbook();
+    sheet = workbook.createSheet(sheetTitle);
+    createHelper = workbook.getCreationHelper();
   }
 
   private Method getMethod(Class<?> aClass, String methodName) {
@@ -157,5 +158,14 @@ public class ExcelExporter {
 
   private String capitalize(String s) {
     return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+  }
+
+  @Override
+  public void close() throws Exception {
+    System.out.println("In close");
+    if (workbook != null) {
+      System.out.println("workbook exists, closing it");
+      workbook.close();
+    }
   }
 }
